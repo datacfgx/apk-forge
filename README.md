@@ -8,6 +8,8 @@
 ```
 
 # APK-FORGE 🔥
+<p align="center"><img src="banner.png" width="100%" alt="APK-FORGE — pixel font, brasa e faíscas"></p>
+
 
 **PT:** Canivete de APK em python stdlib pura (>= 3.8): `info`, `abrir`, `extrair`, `remontar`, `assinar` + menu interativo. O coração é um **decoder AXML em python puro** — lê `AndroidManifest.xml` binário sem dependência de apktool. Fingerprint de cert via openssl+ssl, dump de strings do `classes.dex`, reempacote alinhado, assinatura com apksigner quando presente. Degradação honesta em cada ausência.
 
