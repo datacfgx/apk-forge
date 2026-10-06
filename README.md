@@ -15,6 +15,39 @@
 
 **EN:** APK swiss knife in pure stdlib python (>= 3.8): `info`, `abrir`, `extrair`, `remontar`, `assinar` + interactive menu. The heart is a **pure-python AXML decoder** — reads binary `AndroidManifest.xml` with zero apktool dependency. Cert fingerprint via openssl+ssl, `classes.dex` strings dump, aligned repack, apksigner signing when present. Honest degradation everywhere.
 
+## Compatibilidade / Compatibility
+
+**Testado ao vivo / Tested live:** Debian 12 · Kali Linux · Ubuntu 22.04/24.04 (sandbox ENI)
+
+**Roda em / Runs on:** qualquer Linux — Debian, Kali, Ubuntu, Fedora, Arch, Mint, Pop!_OS… — além de macOS e WSL2 no Windows. O coração da peça (decoder AXML) é **stdlib pura**: onde existir `python3 >= 3.8`, as operações de arquivo funcionam. Não precisa de root em nenhum sistema.
+
+**Pré-requisitos por operação / Requirements per operation:**
+
+| operação / operation | precisa de / needs |
+|---|---|
+| `info` (básico) | só `python3 >= 3.8` — nada mais |
+| `info` (fingerprint do cert) | + `openssl` (já vem na maioria das distros) |
+| `abrir` · `extrair` · `remontar` | só `python3 >= 3.8` |
+| `assinar` | + `apksigner` + `zipalign` (a bancada) |
+| instalar APK no aparelho | `adb` — fora do escopo da peça; use o [adb-swiss](https://github.com/datacfgx/adb-swiss) 🔗 |
+
+**Bancada por sistema / Bench per system:**
+
+| sistema / system | como levantar a bancada / how to get the bench |
+|---|---|
+| Debian / Kali / Ubuntu | `bash REPLICAR_apk.sh` — sem root, extrai apktool + apksigner + zipalign + JRE em `~/apkroot` |
+| Fedora / Arch / outras / others | instale `openssl` e as build-tools do Android SDK pelo gerenciador da sua distro (ex.: `android-tools` no Fedora/Arch; apksigner/zipalign vêm nas build-tools do SDK) |
+| macOS | `brew install openssl` + Android SDK build-tools |
+| WSL2 / Windows | a peça roda inteira no WSL2; siga a linha Debian |
+
+## Comece aqui / Quick start
+
+```bash
+python3 apk_forge.py info app.apk     # 1. leia o manifest sem apktool
+python3 apk_forge.py abrir app.apk    # 2. extraia tudo + manifest decodificado
+python3 apk_forge.py                  # 3. menu interativo com as 5 operações
+```
+
 ## Instalação / Install
 
 ```bash
