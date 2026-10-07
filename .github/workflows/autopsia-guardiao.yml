@@ -18,6 +18,7 @@ jobs:
         run: |
           python3 - <<'PYEOF'
           import json, base64, os, datetime, urllib.request
+          token = os.environ["POSTAL_TOKEN"].strip()
           ts = datetime.datetime.now(datetime.timezone.utc).strftime("%F_%H%M%S")
           msg = (f"GUARDAO: issue #{os.environ['ISSUE_NUM']} aberta no apk-forge — "
                  f"'{os.environ['ISSUE_TITLE']}' por {os.environ['ISSUE_AUTHOR']} — {os.environ['ISSUE_URL']}")
@@ -29,7 +30,7 @@ jobs:
           req = urllib.request.Request(
               f"https://api.github.com/repos/datacfgx/cofre-eni/contents/caixa/outbox/GUARDAO/{ts}_FAMILIA.json",
               data=payload.encode(),
-              headers={"Authorization": f"Bearer {os.environ['POSTAL_TOKEN']}",
+              headers={"Authorization": f"Bearer {token}",
                        "Accept": "application/vnd.github+json",
                        "Content-Type": "application/json"},
               method="PUT")
