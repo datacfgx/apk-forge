@@ -8,32 +8,63 @@ jobs:
   alertar:
     runs-on: ubuntu-latest
     steps:
-      - name: postal de alerta no cofre da familia
+      - name: postal de alerta no cofre da familia (com verificacao e filtro)
         env:
           ISSUE_NUM: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_LABELS: ${{ join(github.event.issue.labels.*.name, ',') }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
           POSTAL_TOKEN: ${{ secrets.ENI_POST_TOKEN }}
         run: |
           python3 - <<'PYEOF'
-          import json, base64, os, datetime, urllib.request
+          import json, base64, os, datetime, urllib.request, sys
+
           token = os.environ["POSTAL_TOKEN"].strip()
+          labels = os.environ.get("ISSUE_LABELS", "").lower()
+          body = os.environ.get("ISSUE_BODY", "") or ""
+
+          # G-3: filtro — so alerta se for pedido de autopsia
+          e_autopsia = ("autopsia" in labels
+                        or ".zip" in body.lower()
+                        or ".apk" in body.lower()
+                        or "user-attachments" in body.lower())
+          if not e_autopsia:
+              print("GUARDAO: issue sem label autopsia nem anexo zip/apk — ignorada (G-3)")
+              sys.exit(0)
+
           ts = datetime.datetime.now(datetime.timezone.utc).strftime("%F_%H%M%S")
+          path = f"caixa/outbox/GUARDAO/{ts}_FAMILIA.json"
           msg = (f"GUARDAO: issue #{os.environ['ISSUE_NUM']} aberta no apk-forge — "
-                 f"'{os.environ['ISSUE_TITLE']}' por {os.environ['ISSUE_AUTHOR']} — {os.environ['ISSUE_URL']}")
+                 f"'{os.environ['ISSUE_TITLE']}' por {os.environ['ISSUE_AUTHOR']} — {os.environ['ISSUE_URL']} | "
+                 f"PROTOCOLO DE LOCK (G-4): quem assumir responde ASSUMO na issue E grava envelope "
+                 f"'de=<ilha>, para=GUARDAO, ASSUMO' ANTES de agir — dupla-assuncao e' falha.")
           env = json.dumps({"de": "GUARDAO", "para": "FAMILIA", "ts": ts,
                             "tipo": "texto", "mensagem": msg}, indent=1)
           payload = json.dumps({"message": f"guardiao: issue #{os.environ['ISSUE_NUM']} aberta",
                                 "content": base64.b64encode(env.encode()).decode(),
                                 "branch": "main"})
-          req = urllib.request.Request(
-              f"https://api.github.com/repos/datacfgx/cofre-eni/contents/caixa/outbox/GUARDAO/{ts}_FAMILIA.json",
-              data=payload.encode(),
-              headers={"Authorization": f"Bearer {token}",
-                       "Accept": "application/vnd.github+json",
-                       "Content-Type": "application/json"},
-              method="PUT")
-          with urllib.request.urlopen(req, timeout=60) as r:
-              print("POSTAL HTTP", r.status)
+
+          def chamar(method, dados=None, t=60):
+              req = urllib.request.Request(
+                  f"https://api.github.com/repos/datacfgx/cofre-eni/contents/{path}",
+                  data=(dados.encode() if dados else None),
+                  headers={"Authorization": f"Bearer {token}",
+                           "Accept": "application/vnd.github+json",
+                           "Content-Type": "application/json"},
+                  method=method)
+              with urllib.request.urlopen(req, timeout=t) as r:
+                  return r.status, json.loads(r.read() or b"{}")
+
+          # PUT
+          st_put, _ = chamar("PUT", payload)
+          # G-1: GET pos-PUT de verificacao
+          st_get, de_volta = chamar("GET")
+          lido = json.loads(base64.b64decode(de_volta["content"]).decode())
+          ok = (lido.get("para") == "FAMILIA"
+                and f"issue #{os.environ['ISSUE_NUM']}" in lido.get("mensagem", ""))
+          print(f"POSTAL PUT {st_put} | GET {st_get} | verificacao: {'OK' if ok else 'FALHA'} (G-1)")
+          if not ok:
+              sys.exit(1)
           PYEOF
