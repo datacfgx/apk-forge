@@ -9,16 +9,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: postal de alerta no cofre da familia
+        env:
+          ISSUE_NUM: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          POSTAL_TOKEN: ${{ secrets.ENI_POST_TOKEN }}
         run: |
-          TS=$(date -u +%F_%H%M%S)
-          NUM="${{ github.event.issue.number }}"
-          TITLE="${{ github.event.issue.title }}"
-          AUTHOR="${{ github.event.issue.user.login }}"
-          URL="${{ github.event.issue.html_url }}"
-          MSG="GUARDAO: issue #$NUM aberta no apk-forge — '$TITLE' por $AUTHOR — $URL"
-          ENV=$(printf '{"de":"GUARDAO","para":"FAMILIA","ts":"%s","tipo":"texto","mensagem":"%s"}' "$TS" "$MSG")
-          B64=$(echo -n "$ENV" | base64 -w0)
-          curl -s -X PUT -H "Authorization: Bearer ${{ secrets.ENI_POST_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            https://api.github.com/repos/datacfgx/cofre-eni/contents/caixa/outbox/GUARDAO/${TS}_FAMILIA.json \
-            -d "{\"message\": \"guardiao: issue #$NUM aberta\", \"content\": \"$B64\", \"branch\": \"main\"}"
+          python3 - <<'PYEOF'
+          import json, base64, os, datetime, urllib.request
+          ts = datetime.datetime.now(datetime.timezone.utc).strftime("%F_%H%M%S")
+          msg = (f"GUARDAO: issue #{os.environ['ISSUE_NUM']} aberta no apk-forge — "
+                 f"'{os.environ['ISSUE_TITLE']}' por {os.environ['ISSUE_AUTHOR']} — {os.environ['ISSUE_URL']}")
+          env = json.dumps({"de": "GUARDAO", "para": "FAMILIA", "ts": ts,
+                            "tipo": "texto", "mensagem": msg}, indent=1)
+          payload = json.dumps({"message": f"guardiao: issue #{os.environ['ISSUE_NUM']} aberta",
+                                "content": base64.b64encode(env.encode()).decode(),
+                                "branch": "main"})
+          req = urllib.request.Request(
+              f"https://api.github.com/repos/datacfgx/cofre-eni/contents/caixa/outbox/GUARDAO/{ts}_FAMILIA.json",
+              data=payload.encode(),
+              headers={"Authorization": f"Bearer {os.environ['POSTAL_TOKEN']}",
+                       "Accept": "application/vnd.github+json",
+                       "Content-Type": "application/json"},
+              method="PUT")
+          with urllib.request.urlopen(req, timeout=60) as r:
+              print("POSTAL HTTP", r.status)
+          PYEOF
